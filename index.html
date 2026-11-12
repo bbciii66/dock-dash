@@ -1,0 +1,2561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dock Dash — Warehouse Logistics Tactical Puzzle</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg-void: #06090e;
+      --bg-hull: #0b1018;
+      --bg-panel: #111926;
+      --bg-panel-elevated: #162132;
+      --bg-tile: #121b28;
+      --bg-tile-alt: #151f2e;
+      --bg-tile-hover: #1c2b40;
+
+      --border-subtle: rgba(148, 163, 184, 0.14);
+      --border-strong: rgba(148, 163, 184, 0.26);
+      --border-highlight: rgba(56, 189, 248, 0.5);
+
+      --text-primary: #f8fafc;
+      --text-secondary: #cbd5e1;
+      --text-muted: #94a3b8;
+
+      --accent-cyan: #38bdf8;
+      --accent-cyan-bright: #7dd3fc;
+      --accent-amber: #f59e0b;
+      --accent-amber-bright: #fbbf24;
+      --accent-emerald: #10b981;
+      --accent-emerald-bright: #34d399;
+      --accent-crimson: #ef4444;
+      --accent-indigo: #818cf8;
+
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+      /* Dynamic cell sizing so 8 rows + frame always fit comfortably on a laptop screen */
+      --cell-size: clamp(48px, 8.2dvh, 65px);
+      --grid-gap: clamp(4px, 0.65dvh, 6px);
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      block-size: 100%;
+      min-block-size: 100dvh;
+      background-color: var(--bg-void);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+      overflow-x: clip;
+    }
+
+    body {
+      display: flex;
+      align-items: safe center;
+      justify-content: safe center;
+      padding-block: clamp(8px, 1.4dvh, 16px);
+      padding-inline: clamp(12px, 2vw, 24px);
+      background-image:
+        radial-gradient(circle at 25% 20%, rgba(56, 189, 248, 0.08) 0%, transparent 48%),
+        radial-gradient(circle at 78% 80%, rgba(245, 158, 11, 0.07) 0%, transparent 50%),
+        linear-gradient(rgba(148, 163, 184, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148, 163, 184, 0.03) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 28px 28px, 28px 28px;
+    }
+
+    svg {
+      display: block;
+    }
+
+    /* Main Workstation Shell */
+    .workstation {
+      display: grid;
+      grid-template-columns: auto minmax(386px, 424px);
+      gap: clamp(14px, 1.8vw, 22px);
+      align-items: stretch;
+      max-inline-size: 1160px;
+      margin-inline: auto;
+      padding: clamp(12px, 1.5dvh, 18px);
+      background: linear-gradient(165deg, rgba(22, 33, 49, 0.95), rgba(10, 15, 24, 0.98));
+      border: 1px solid var(--border-strong);
+      border-radius: 18px;
+      box-shadow:
+        0 28px 64px -14px rgba(0, 0, 0, 0.88),
+        0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+        0 1px 0 0 rgba(255, 255, 255, 0.12) inset;
+      position: relative;
+    }
+
+    /* Top industrial accent bar */
+    .workstation::before {
+      content: "";
+      position: absolute;
+      inset-block-start: 0;
+      inset-inline: 28px;
+      block-size: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent-cyan), var(--accent-amber), transparent);
+      opacity: 0.65;
+      pointer-events: none;
+    }
+
+    /* =========================================
+       LEFT COLUMN: WAREHOUSE FLOOR BAY
+       ========================================= */
+    .warehouse-bay {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background: var(--bg-hull);
+      border: 1px solid var(--border-strong);
+      border-radius: 14px;
+      padding: clamp(10px, 1.35dvh, 15px);
+      box-shadow: inset 0 2px 14px rgba(0, 0, 0, 0.72);
+      position: relative;
+    }
+
+    .bay-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-block-end: clamp(6px, 0.9dvh, 9px);
+      padding-block-end: clamp(6px, 0.85dvh, 8px);
+      border-block-end: 1px solid var(--border-subtle);
+    }
+
+    .bay-sector-tag {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-family: var(--font-mono);
+      font-size: 0.67rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .bay-sector-dot {
+      inline-size: 8px;
+      block-size: 8px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      box-shadow: 0 0 8px var(--accent-cyan);
+    }
+
+    .bay-status-banner {
+      font-family: var(--font-mono);
+      font-size: 0.64rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.13);
+      color: var(--accent-cyan-bright);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .bay-status-banner[data-state="active"] {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--accent-amber-bright);
+      border-color: rgba(245, 158, 11, 0.45);
+    }
+
+    .bay-status-banner[data-state="ready"] {
+      background: rgba(16, 185, 129, 0.18);
+      color: var(--accent-emerald-bright);
+      border-color: rgba(16, 185, 129, 0.55);
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
+    }
+
+    .bay-status-banner[data-state="won"] {
+      background: rgba(16, 185, 129, 0.25);
+      color: #a7f3d0;
+      border-color: var(--accent-emerald-bright);
+    }
+
+    .bay-status-banner[data-state="blocked"] {
+      background: rgba(239, 68, 68, 0.2);
+      color: #fca5a5;
+      border-color: rgba(239, 68, 68, 0.5);
+    }
+
+    /* Coordinate Frame around the 6x8 Grid */
+    .grid-chassis {
+      display: grid;
+      grid-template-columns: 22px 1fr;
+      grid-template-rows: 18px 1fr;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .col-headers {
+      grid-column: 2;
+      grid-row: 1;
+      display: grid;
+      grid-template-columns: repeat(6, var(--cell-size));
+      gap: var(--grid-gap);
+      justify-content: center;
+    }
+
+    .col-headers span,
+    .row-headers span {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      font-weight: 800;
+      color: var(--text-secondary);
+      opacity: 0.78;
+      text-align: center;
+      letter-spacing: 0.08em;
+    }
+
+    .row-headers {
+      grid-column: 1;
+      grid-row: 2;
+      display: grid;
+      grid-template-rows: repeat(8, var(--cell-size));
+      gap: var(--grid-gap);
+      align-items: center;
+    }
+
+    /* The 6x8 Warehouse Grid */
+    .warehouse-grid {
+      grid-column: 2;
+      grid-row: 2;
+      display: grid;
+      grid-template-columns: repeat(6, var(--cell-size));
+      grid-template-rows: repeat(8, var(--cell-size));
+      gap: var(--grid-gap);
+      padding: 8px;
+      background:
+        linear-gradient(180deg, rgba(8, 12, 19, 0.98), rgba(12, 18, 28, 0.98));
+      border: 2px solid #2b3c57;
+      border-radius: 12px;
+      box-shadow:
+        inset 0 4px 18px rgba(0, 0, 0, 0.85),
+        0 1px 0 rgba(255, 255, 255, 0.08);
+      position: relative;
+      outline: none;
+    }
+
+    /* Individual Warehouse Cell */
+    .cell {
+      position: relative;
+      inline-size: var(--cell-size);
+      block-size: var(--cell-size);
+      background:
+        radial-gradient(circle at 50% 50%, rgba(148, 163, 184, 0.03) 0%, transparent 70%),
+        var(--bg-tile);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      overflow: clip;
+      transition:
+        background-color 0.14s ease,
+        border-color 0.14s ease,
+        transform 0.14s ease,
+        box-shadow 0.14s ease;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    }
+
+    .cell:nth-child(even) {
+      background:
+        radial-gradient(circle at 50% 50%, rgba(148, 163, 184, 0.035) 0%, transparent 70%),
+        var(--bg-tile-alt);
+    }
+
+    /* Subtle concrete floor joint corner ticks */
+    .cell::before {
+      content: "";
+      position: absolute;
+      inset: 3px;
+      border: 1px dashed rgba(148, 163, 184, 0.06);
+      border-radius: 5px;
+      pointer-events: none;
+    }
+
+    /* Stencil coordinate in top-left corner, clear of bottom graphics */
+    .cell-coord {
+      position: absolute;
+      inset-block-start: 2px;
+      inset-inline-start: 4px;
+      font-family: var(--font-mono);
+      font-size: 0.52rem;
+      font-weight: 700;
+      color: rgba(203, 213, 225, 0.36);
+      line-height: 1;
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    /* Start Cell (Bottom-Left: 0, 7 -> A8) */
+    .cell--start {
+      border-color: rgba(56, 189, 248, 0.42);
+      background:
+        radial-gradient(circle at center, rgba(56, 189, 248, 0.12), transparent 75%),
+        var(--bg-tile);
+    }
+
+    .start-badge {
+      position: absolute;
+      inset-block-end: 2px;
+      inset-inline-end: 3px;
+      font-family: var(--font-mono);
+      font-size: 0.44rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      padding: 0 3px;
+      border-radius: 3px;
+      background: rgba(14, 116, 144, 0.45);
+      color: #bae6fd;
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    /* Subtle visited path breadcrumb dot */
+    .cell--visited:not(.cell--player):not(.cell--package):not(.cell--dock-locked):not(.cell--dock-open):not(.cell--collected)::after {
+      content: "";
+      position: absolute;
+      inline-size: 4px;
+      block-size: 4px;
+      border-radius: 50%;
+      background: rgba(56, 189, 248, 0.22);
+      pointer-events: none;
+    }
+
+    /* Valid adjacent move step highlight */
+    .cell--valid-step {
+      cursor: pointer;
+      border-color: rgba(56, 189, 248, 0.38);
+    }
+
+    .cell--valid-step::after {
+      content: "";
+      position: absolute;
+      inline-size: 7px;
+      block-size: 7px;
+      border-radius: 50%;
+      background: rgba(56, 189, 248, 0.42);
+      box-shadow: 0 0 7px rgba(56, 189, 248, 0.55);
+      pointer-events: none;
+      transition: transform 0.15s ease, background-color 0.15s ease;
+      z-index: 3;
+    }
+
+    .cell--valid-step:hover {
+      background: var(--bg-tile-hover);
+      border-color: var(--accent-cyan);
+      box-shadow: inset 0 0 12px rgba(56, 189, 248, 0.22);
+    }
+
+    .cell--valid-step:hover::after {
+      transform: scale(1.45);
+      background: var(--accent-cyan-bright);
+    }
+
+    /* Shelving Cell (Obstacle) */
+    .cell--shelf {
+      background: #0a0f17;
+      border-color: #3b4d66;
+      box-shadow:
+        0 3px 8px rgba(0, 0, 0, 0.7),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    .cell--shelf::before {
+      display: none;
+    }
+
+    .cell--shelf .cell-coord {
+      color: rgba(203, 213, 225, 0.28);
+    }
+
+    /* Package Cell */
+    .cell--package {
+      border-color: rgba(251, 191, 36, 0.52);
+      background:
+        radial-gradient(circle at center, rgba(245, 158, 11, 0.2), transparent 72%),
+        var(--bg-tile);
+    }
+
+    /* Collected Package Footprint */
+    .cell--collected {
+      border-color: rgba(16, 185, 129, 0.32);
+      background:
+        radial-gradient(circle at center, rgba(16, 185, 129, 0.09), transparent 72%),
+        var(--bg-tile);
+    }
+
+    .collected-mark {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1px;
+      inline-size: 68%;
+      block-size: 68%;
+      border: 1px dashed rgba(52, 211, 153, 0.38);
+      border-radius: 5px;
+      background: rgba(6, 78, 59, 0.2);
+      pointer-events: none;
+    }
+
+    .collected-mark span {
+      font-family: var(--font-mono);
+      font-size: 0.48rem;
+      font-weight: 800;
+      color: var(--accent-emerald-bright);
+      letter-spacing: 0.04em;
+    }
+
+    /* Loading Dock Cell (Top-Right: 5, 0 -> F1) */
+    .cell--dock-locked {
+      border-color: rgba(129, 140, 248, 0.55);
+      background:
+        radial-gradient(circle at center, rgba(99, 102, 241, 0.16), transparent 75%),
+        repeating-linear-gradient(
+          -45deg,
+          rgba(30, 41, 59, 0.92),
+          rgba(30, 41, 59, 0.92) 5px,
+          rgba(15, 23, 42, 0.95) 5px,
+          rgba(15, 23, 42, 0.95) 10px
+        );
+    }
+
+    .cell--dock-open {
+      border-color: var(--accent-emerald-bright);
+      background:
+        radial-gradient(circle at center, rgba(16, 185, 129, 0.36), rgba(16, 185, 129, 0.1) 72%),
+        repeating-linear-gradient(
+          -45deg,
+          rgba(16, 185, 129, 0.18),
+          rgba(16, 185, 129, 0.18) 5px,
+          rgba(15, 23, 42, 0.88) 5px,
+          rgba(15, 23, 42, 0.88) 10px
+        );
+      box-shadow:
+        0 0 18px rgba(16, 185, 129, 0.45),
+        inset 0 0 12px rgba(16, 185, 129, 0.3);
+      animation: dockPulse 1.4s ease-in-out infinite;
+    }
+
+    @keyframes dockPulse {
+      0%, 100% {
+        box-shadow: 0 0 12px rgba(16, 185, 129, 0.35), inset 0 0 10px rgba(16, 185, 129, 0.22);
+      }
+      50% {
+        box-shadow: 0 0 24px rgba(52, 211, 153, 0.7), inset 0 0 16px rgba(52, 211, 153, 0.42);
+      }
+    }
+
+    /* Player Active Cell */
+    .cell--player {
+      border-color: var(--accent-cyan-bright);
+      background:
+        radial-gradient(circle at center, rgba(56, 189, 248, 0.26), transparent 72%),
+        var(--bg-tile);
+      box-shadow:
+        0 0 16px rgba(56, 189, 248, 0.28),
+        inset 0 0 10px rgba(56, 189, 248, 0.22);
+      z-index: 2;
+    }
+
+    /* Blocked Bump Feedback Animation */
+    .cell--bump {
+      animation: bumpShake 0.26s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+      border-color: var(--accent-crimson) !important;
+    }
+
+    @keyframes bumpShake {
+      0%, 100% { transform: translate(0, 0); }
+      25% { transform: translate(var(--bump-x, -4px), var(--bump-y, 0)); }
+      60% { transform: translate(calc(var(--bump-x, -4px) * -0.5), calc(var(--bump-y, 0) * -0.5)); }
+    }
+
+    /* SVG Entity Artwork Sizing */
+    .entity-svg {
+      inline-size: 78%;
+      block-size: 78%;
+      position: relative;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .package-wrapper {
+      inline-size: 76%;
+      block-size: 76%;
+      position: relative;
+      z-index: 2;
+      display: grid;
+      place-items: center;
+      animation: crateFloat 2.4s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    @keyframes crateFloat {
+      0%, 100% { transform: translateY(1px); }
+      50% { transform: translateY(-1.5px); }
+    }
+
+    .package-tag {
+      position: absolute;
+      inset-block-start: 2px;
+      inset-inline-end: 3px;
+      font-family: var(--font-mono);
+      font-size: 0.48rem;
+      font-weight: 800;
+      color: #fef3c7;
+      background: rgba(180, 83, 9, 0.92);
+      border: 1px solid rgba(251, 191, 36, 0.7);
+      border-radius: 3px;
+      padding: 0 3px;
+      line-height: 1.25;
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    .dock-badge {
+      position: absolute;
+      inset-block-start: 2px;
+      inset-inline-end: 3px;
+      font-family: var(--font-mono);
+      font-size: 0.45rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      padding: 1px 3px;
+      border-radius: 3px;
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    .dock-badge--locked {
+      background: rgba(30, 27, 75, 0.92);
+      color: #c7d2fe;
+      border: 1px solid rgba(129, 140, 248, 0.6);
+    }
+
+    .dock-badge--open {
+      background: rgba(6, 78, 59, 0.95);
+      color: #a7f3d0;
+      border: 1px solid var(--accent-emerald-bright);
+    }
+
+    .player-forklift {
+      inline-size: 82%;
+      block-size: 82%;
+      position: relative;
+      z-index: 4;
+      transition: transform 0.12s ease-out;
+      pointer-events: none;
+      filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.75));
+    }
+
+    /* Bottom Footer Strip under the Grid */
+    .bay-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-block-start: clamp(6px, 0.9dvh, 9px);
+      padding-block-start: clamp(6px, 0.85dvh, 8px);
+      border-block-start: 1px solid var(--border-subtle);
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      color: var(--text-muted);
+    }
+
+    .bay-coords-readout {
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+
+    .bay-coords-readout strong {
+      color: var(--accent-cyan-bright);
+    }
+
+    /* =========================================
+       RIGHT COLUMN: COMMAND & CONTROL DECK
+       ========================================= */
+    .command-deck {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: clamp(7px, 1dvh, 11px);
+    }
+
+    .deck-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: clamp(9px, 1.2dvh, 13px);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+
+    /* 1. Brand, Action Toolbar, Seed Bar & Telemetry Card */
+    .brand-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-block-end: 8px;
+    }
+
+    .brand-title-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-inline-size: 0;
+    }
+
+    .brand-emblem {
+      inline-size: 34px;
+      block-size: 34px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.22), rgba(245, 158, 11, 0.22));
+      border: 1px solid rgba(56, 189, 248, 0.45);
+      display: grid;
+      place-items: center;
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.16);
+      flex-shrink: 0;
+    }
+
+    .brand-title {
+      font-size: 1.16rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-primary);
+      line-height: 1.05;
+      white-space: nowrap;
+    }
+
+    .brand-subtitle {
+      font-family: var(--font-mono);
+      font-size: 0.58rem;
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-block-start: 2px;
+      white-space: nowrap;
+    }
+
+    .action-toolbar {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-block-end: 7px;
+    }
+
+    .btn-action {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      padding: 6px 10px;
+      border-radius: 7px;
+      font-family: var(--font-sans);
+      font-size: 0.73rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      transition: all 0.14s ease;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35);
+      white-space: nowrap;
+      outline: none;
+    }
+
+    .btn-action:focus-visible {
+      outline: 2px solid var(--accent-cyan-bright);
+      outline-offset: 2px;
+    }
+
+    /* Undo Button */
+    .btn-undo {
+      border: 1px solid rgba(56, 189, 248, 0.42);
+      background: linear-gradient(180deg, rgba(56, 189, 248, 0.18), rgba(14, 116, 144, 0.24));
+      color: #e0f2fe;
+    }
+
+    .btn-undo:hover:not(:disabled) {
+      background: linear-gradient(180deg, rgba(56, 189, 248, 0.3), rgba(14, 116, 144, 0.36));
+      border-color: var(--accent-cyan-bright);
+      transform: translateY(-1px);
+    }
+
+    .btn-undo:disabled {
+      opacity: 0.38;
+      cursor: not-allowed;
+      border-color: rgba(148, 163, 184, 0.2);
+      background: rgba(15, 23, 42, 0.5);
+      color: var(--text-muted);
+      box-shadow: none;
+    }
+
+    /* Restart Button */
+    .btn-restart {
+      border: 1px solid rgba(245, 158, 11, 0.5);
+      background: linear-gradient(180deg, rgba(245, 158, 11, 0.2), rgba(180, 83, 9, 0.25));
+      color: #fef3c7;
+    }
+
+    .btn-restart:hover {
+      background: linear-gradient(180deg, rgba(245, 158, 11, 0.32), rgba(180, 83, 9, 0.38));
+      border-color: var(--accent-amber-bright);
+      transform: translateY(-1px);
+    }
+
+    /* New Board Button */
+    .btn-new-board {
+      border: 1px solid rgba(16, 185, 129, 0.5);
+      background: linear-gradient(180deg, rgba(16, 185, 129, 0.2), rgba(6, 95, 70, 0.28));
+      color: #d1fae5;
+    }
+
+    .btn-new-board:hover {
+      background: linear-gradient(180deg, rgba(16, 185, 129, 0.32), rgba(6, 95, 70, 0.4));
+      border-color: var(--accent-emerald-bright);
+      transform: translateY(-1px);
+    }
+
+    /* Editable Board Seed Control Strip */
+    .seed-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 8px;
+      margin-block-end: 8px;
+      background: var(--bg-hull);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+    }
+
+    .seed-label {
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .seed-input {
+      flex: 1;
+      min-inline-size: 0;
+      background: #070b11;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 5px;
+      padding: 4px 8px;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--accent-cyan-bright);
+      letter-spacing: 0.04em;
+      user-select: text;
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .seed-input:focus {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+    }
+
+    .btn-load-seed {
+      padding: 4px 10px;
+      border-radius: 5px;
+      border: 1px solid rgba(129, 140, 248, 0.45);
+      background: linear-gradient(180deg, rgba(99, 102, 241, 0.22), rgba(55, 48, 163, 0.28));
+      color: #e0e7ff;
+      font-family: var(--font-sans);
+      font-size: 0.68rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.14s ease;
+    }
+
+    .btn-load-seed:hover {
+      background: linear-gradient(180deg, rgba(99, 102, 241, 0.35), rgba(55, 48, 163, 0.42));
+      border-color: var(--accent-indigo);
+    }
+
+    .btn-load-seed:focus-visible {
+      outline: 2px solid var(--accent-indigo);
+      outline-offset: 2px;
+    }
+
+    /* Telemetry 3-Stat Grid */
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 7px;
+    }
+
+    .stat-box {
+      background: var(--bg-hull);
+      border: 1px solid var(--border-subtle);
+      border-radius: 9px;
+      padding: 7px 9px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-inline-size: 0;
+    }
+
+    .stat-label {
+      font-family: var(--font-mono);
+      font-size: 0.58rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-block-end: 2px;
+      white-space: nowrap;
+    }
+
+    .stat-value {
+      font-family: var(--font-mono);
+      font-size: 1.2rem;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-primary);
+      line-height: 1.1;
+    }
+
+    .stat-value--time { color: var(--accent-cyan-bright); }
+    .stat-value--moves { color: var(--text-primary); }
+    .stat-value--cargo { color: var(--accent-amber-bright); }
+    .stat-value--cargo.is-complete { color: var(--accent-emerald-bright); }
+
+    .stat-sub {
+      font-family: var(--font-mono);
+      font-size: 0.54rem;
+      color: var(--text-muted);
+      margin-block-start: 3px;
+      white-space: nowrap;
+    }
+
+    /* 5-Package Visual Manifest Progress Strip */
+    .manifest-strip {
+      margin-block-start: 8px;
+      padding-block-start: 7px;
+      border-block-start: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .manifest-label {
+      font-family: var(--font-mono);
+      font-size: 0.62rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .manifest-slots {
+      display: flex;
+      gap: 5px;
+    }
+
+    .manifest-slot {
+      inline-size: 32px;
+      block-size: 18px;
+      border-radius: 4px;
+      background: var(--bg-hull);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      display: grid;
+      place-items: center;
+      font-family: var(--font-mono);
+      font-size: 0.55rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      transition: all 0.2s ease;
+    }
+
+    .manifest-slot.is-collected {
+      background: rgba(245, 158, 11, 0.24);
+      border-color: var(--accent-amber-bright);
+      color: #fef3c7;
+      box-shadow: 0 0 8px rgba(245, 158, 11, 0.32);
+    }
+
+    /* 2. On-Screen Controls & Visible Control Guide Card */
+    .card-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-block-end: 7px;
+    }
+
+    .card-title {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      font-weight: 800;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+
+    .card-badge {
+      font-family: var(--font-mono);
+      font-size: 0.56rem;
+      font-weight: 700;
+      color: var(--accent-cyan-bright);
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+
+    .controls-layout {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 11px;
+      align-items: center;
+    }
+
+    /* Tactile On-Screen D-Pad */
+    .dpad {
+      display: grid;
+      grid-template-columns: repeat(3, 43px);
+      grid-template-rows: repeat(2, 40px);
+      gap: 5px;
+      padding: 6px;
+      background: var(--bg-hull);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+    }
+
+    .dpad-btn {
+      background: linear-gradient(180deg, #1e293b, #131c2b);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 7px;
+      color: var(--text-primary);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1px;
+      cursor: pointer;
+      transition: all 0.1s ease;
+      box-shadow:
+        0 2px 4px rgba(0, 0, 0, 0.45),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      outline: none;
+    }
+
+    .dpad-btn--up    { grid-column: 2; grid-row: 1; }
+    .dpad-btn--left  { grid-column: 1; grid-row: 2; }
+    .dpad-btn--down  { grid-column: 2; grid-row: 2; }
+    .dpad-btn--right { grid-column: 3; grid-row: 2; }
+
+    .dpad-btn:hover {
+      background: linear-gradient(180deg, #26354d, #192538);
+      border-color: var(--accent-cyan);
+      color: #fff;
+    }
+
+    .dpad-btn:active,
+    .dpad-btn.is-pressed {
+      transform: translateY(1px);
+      background: rgba(56, 189, 248, 0.26);
+      border-color: var(--accent-cyan-bright);
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.38);
+    }
+
+    .dpad-btn:focus-visible {
+      outline: 2px solid var(--accent-cyan-bright);
+      outline-offset: 2px;
+    }
+
+    .dpad-arrow {
+      font-size: 0.82rem;
+      line-height: 1;
+      font-weight: 800;
+    }
+
+    .dpad-key {
+      font-family: var(--font-mono);
+      font-size: 0.52rem;
+      color: var(--text-secondary);
+      font-weight: 700;
+    }
+
+    /* Visible Control Guide List */
+    .control-guide-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+    }
+
+    .control-guide-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 3.5px 8px;
+      background: rgba(11, 16, 24, 0.72);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+
+    .keycap-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      flex-shrink: 0;
+    }
+
+    kbd {
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      background: #1e293b;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      border-block-end-width: 2px;
+      border-radius: 4px;
+      padding: 1px 5px;
+      line-height: 1.2;
+    }
+
+    /* 3. Warehouse Symbol Legend & Rules Card */
+    .legend-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 8px;
+      background: var(--bg-hull);
+      border: 1px solid var(--border-subtle);
+      border-radius: 7px;
+    }
+
+    .legend-swatch {
+      inline-size: 25px;
+      block-size: 25px;
+      border-radius: 6px;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+
+    .legend-swatch--player {
+      background: rgba(56, 189, 248, 0.16);
+      border: 1px solid rgba(56, 189, 248, 0.48);
+    }
+
+    .legend-swatch--package {
+      background: rgba(245, 158, 11, 0.18);
+      border: 1px solid rgba(245, 158, 11, 0.48);
+    }
+
+    .legend-swatch--dock {
+      background: rgba(16, 185, 129, 0.18);
+      border: 1px solid rgba(16, 185, 129, 0.48);
+    }
+
+    .legend-swatch--shelf {
+      background: #0b1018;
+      border: 1px solid #475569;
+    }
+
+    .legend-text {
+      display: flex;
+      flex-direction: column;
+      min-inline-size: 0;
+    }
+
+    .legend-name {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1.15;
+      white-space: nowrap;
+    }
+
+    .legend-desc {
+      font-family: var(--font-mono);
+      font-size: 0.56rem;
+      color: var(--text-muted);
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+
+    .mission-rules {
+      margin-block-start: 6px;
+      padding-block-start: 6px;
+      border-block-start: 1px solid var(--border-subtle);
+      font-size: 0.67rem;
+      color: var(--text-secondary);
+      line-height: 1.35;
+    }
+
+    .mission-rules strong {
+      color: var(--text-primary);
+    }
+
+    /* =========================================
+       VICTORY PANEL (MODAL DIALOG + IN-PLACE BANNER)
+       ========================================= */
+    dialog:modal {
+      overscroll-behavior: contain;
+    }
+
+    dialog::backdrop {
+      overflow: hidden;
+      overscroll-behavior: contain;
+      background: rgba(5, 8, 14, 0.78);
+      backdrop-filter: blur(5px);
+    }
+
+    #victory-dialog {
+      margin: auto;
+      padding: 0;
+      border: 1px solid var(--accent-emerald-bright);
+      border-radius: 16px;
+      background: linear-gradient(165deg, #111c2b 0%, #0a111a 100%);
+      color: var(--text-primary);
+      max-inline-size: 440px;
+      inline-size: calc(100% - 32px);
+      box-shadow:
+        0 25px 60px rgba(0, 0, 0, 0.9),
+        0 0 32px rgba(16, 185, 129, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    }
+
+    #victory-dialog[open] {
+      display: block;
+      animation: dialogPop 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes dialogPop {
+      from {
+        opacity: 0;
+        transform: scale(0.94) translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+    }
+
+    .victory-panel {
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .victory-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .victory-crest {
+      inline-size: 52px;
+      block-size: 52px;
+      border-radius: 14px;
+      background: radial-gradient(circle at 30% 30%, rgba(52, 211, 153, 0.32), rgba(6, 78, 59, 0.6));
+      border: 1px solid var(--accent-emerald-bright);
+      display: grid;
+      place-items: center;
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.35);
+      flex-shrink: 0;
+    }
+
+    .victory-kicker {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent-emerald-bright);
+    }
+
+    .victory-title {
+      font-size: 1.42rem;
+      font-weight: 800;
+      color: var(--text-primary);
+      line-height: 1.15;
+    }
+
+    .victory-summary {
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      line-height: 1.45;
+    }
+
+    .victory-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .victory-stat-card {
+      background: rgba(9, 13, 20, 0.85);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 10px;
+      padding: 10px;
+      text-align: center;
+    }
+
+    .victory-stat-label {
+      font-family: var(--font-mono);
+      font-size: 0.62rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-block-end: 4px;
+    }
+
+    .victory-stat-val {
+      font-family: var(--font-mono);
+      font-size: 1.25rem;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-primary);
+    }
+
+    .victory-stat-val--highlight {
+      color: var(--accent-emerald-bright);
+    }
+
+    .victory-rank-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+    }
+
+    .victory-rank-label {
+      color: var(--text-secondary);
+    }
+
+    .victory-rank-badge {
+      font-weight: 800;
+      color: var(--accent-emerald-bright);
+    }
+
+    .victory-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-primary-victory {
+      flex: 1;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--accent-emerald-bright);
+      background: linear-gradient(180deg, #10b981, #059669);
+      color: #042f2e;
+      font-family: var(--font-sans);
+      font-size: 0.82rem;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn-primary-victory:hover {
+      background: linear-gradient(180deg, #34d399, #10b981);
+      box-shadow: 0 0 18px rgba(16, 185, 129, 0.45);
+    }
+
+    .btn-secondary-victory {
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border-strong);
+      background: var(--bg-panel-elevated);
+      color: var(--text-secondary);
+      font-family: var(--font-sans);
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn-secondary-victory:hover {
+      color: var(--text-primary);
+      border-color: var(--text-secondary);
+    }
+
+    /* Inline Victory Banner inside Command Deck when won */
+    .inline-victory-banner {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 11px;
+      border-radius: 10px;
+      background: linear-gradient(90deg, rgba(16, 185, 129, 0.22), rgba(6, 78, 59, 0.35));
+      border: 1px solid var(--accent-emerald-bright);
+      color: #d1fae5;
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+
+    .inline-victory-banner.is-visible {
+      display: flex;
+    }
+
+    /* Responsive fallback for narrow viewports */
+    @media (max-width: 880px) {
+      .workstation {
+        grid-template-columns: 1fr;
+        max-inline-size: 480px;
+      }
+      :root {
+        --cell-size: clamp(42px, 11vw, 54px);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="workstation" aria-label="Dock Dash Warehouse Game">
+    <!-- LEFT COLUMN: 6x8 WAREHOUSE FLOOR -->
+    <section class="warehouse-bay" aria-label="Warehouse Floor Grid">
+      <div class="bay-topbar">
+        <div class="bay-sector-tag">
+          <span class="bay-sector-dot" aria-hidden="true"></span>
+          <span id="sector-seed-label">SEED: SECTOR-07 // 6×8</span>
+        </div>
+        <div id="status-banner" class="bay-status-banner" data-state="standby" role="status" aria-live="polite">
+          STANDBY — MAKE FIRST MOVE
+        </div>
+      </div>
+
+      <div class="grid-chassis">
+        <div class="col-headers" aria-hidden="true">
+          <span>A</span><span>B</span><span>C</span><span>D</span><span>E</span><span>F</span>
+        </div>
+        <div class="row-headers" aria-hidden="true">
+          <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span>
+        </div>
+        <div
+          id="warehouse-grid"
+          class="warehouse-grid"
+          role="grid"
+          aria-label="6 column by 8 row warehouse floor"
+          tabindex="0"
+        ></div>
+      </div>
+
+      <div class="bay-footer">
+        <span class="bay-coords-readout">
+          LOADER POS: <strong id="pos-readout">A8 (Col 1, Row 8)</strong>
+        </span>
+        <span id="dock-readout">DOCK F1: LOCKED (0/5 CARGO)</span>
+      </div>
+    </section>
+
+    <!-- RIGHT COLUMN: TELEMETRY, CONTROLS, LEGEND -->
+    <aside class="command-deck" aria-label="Telemetry and Controls">
+      <!-- 1. Brand, Action Buttons, Seed Bar & Live Telemetry -->
+      <div class="deck-card">
+        <div class="brand-header">
+          <div class="brand-title-group">
+            <div class="brand-emblem" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <rect x="3" y="6" width="18" height="14" rx="2.5" stroke="#38bdf8" stroke-width="2"/>
+                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="#fbbf24" stroke-width="2"/>
+                <path d="M7 13h10M12 10v6" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div>
+              <h1 class="brand-title">Dock Dash</h1>
+              <p class="brand-subtitle">Tactical Warehouse Dispatch</p>
+            </div>
+          </div>
+          <span class="card-badge">DISPATCH OS v2.4</span>
+        </div>
+
+        <div class="action-toolbar" role="group" aria-label="Game Actions">
+          <button id="undo-btn" type="button" class="btn-action btn-undo" disabled title="Undo last move (Shortcut: U)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M9 14L4 9l5-5" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Undo (U)</span>
+          </button>
+
+          <button id="restart-btn" type="button" class="btn-action btn-restart" title="Reset current board without changing layout (Shortcut: R)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M3 12a9 9 0 1 0 3-6.7L3 8" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M3 3v5h5" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Restart (R)</span>
+          </button>
+
+          <button id="new-board-btn" type="button" class="btn-action btn-new-board" title="Generate a new valid board layout with a new seed">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2.2"/>
+              <rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2.2"/>
+              <rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2.2"/>
+              <rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2.2"/>
+            </svg>
+            <span>New Board</span>
+          </button>
+        </div>
+
+        <!-- Visible Editable Board Seed Strip -->
+        <div class="seed-bar">
+          <label for="seed-input" class="seed-label">Board Seed</label>
+          <input
+            id="seed-input"
+            type="text"
+            class="seed-input"
+            value="SECTOR-07"
+            spellcheck="false"
+            autocomplete="off"
+            aria-label="Editable Board Seed"
+          />
+          <button id="load-seed-btn" type="button" class="btn-load-seed" title="Load board layout from this seed">
+            Load Seed
+          </button>
+        </div>
+
+        <div class="telemetry-grid">
+          <div class="stat-box">
+            <span class="stat-label">Elapsed Time</span>
+            <span id="time-display" class="stat-value stat-value--time">00:00.0</span>
+            <span id="timer-state-sub" class="stat-sub">Starts on 1st move</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">Move Count</span>
+            <span id="moves-display" class="stat-value stat-value--moves">0</span>
+            <span id="par-state-sub" class="stat-sub">Valid moves (Par 26)</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">Packages</span>
+            <span id="packages-display" class="stat-value stat-value--cargo">0 / 5</span>
+            <span id="cargo-state-sub" class="stat-sub">5 left to load</span>
+          </div>
+        </div>
+
+        <div class="manifest-strip" aria-label="Cargo Manifest Progress">
+          <span class="manifest-label">Cargo Manifest</span>
+          <div id="manifest-slots" class="manifest-slots">
+            <span class="manifest-slot">#1</span>
+            <span class="manifest-slot">#2</span>
+            <span class="manifest-slot">#3</span>
+            <span class="manifest-slot">#4</span>
+            <span class="manifest-slot">#5</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Inline Victory Banner (remains visible even if modal is dismissed) -->
+      <div id="inline-victory-banner" class="inline-victory-banner" role="region" aria-label="Victory Status">
+        <span id="inline-victory-text">SHIFT COMPLETE! Dispatch verified.</span>
+        <div style="display: flex; gap: 6px;">
+          <button id="inline-undo-btn" type="button" class="btn-action btn-undo" style="padding: 4px 8px; font-size: 0.68rem;">
+            Undo (U)
+          </button>
+          <button id="show-victory-btn" type="button" class="btn-action btn-restart" style="padding: 4px 8px; font-size: 0.68rem;">
+            Report
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. On-Screen Direction Pad & Visible Control Guide -->
+      <div class="deck-card">
+        <div class="card-heading">
+          <h2 class="card-title">Navigation &amp; Control Guide</h2>
+          <span class="card-badge">KEYBOARD + D-PAD</span>
+        </div>
+
+        <div class="controls-layout">
+          <div class="dpad" role="group" aria-label="On-screen direction buttons">
+            <button type="button" class="dpad-btn dpad-btn--up" data-dir="up" aria-label="Move Up (W or Up Arrow)">
+              <span class="dpad-arrow">▲</span>
+              <span class="dpad-key">W / ↑</span>
+            </button>
+            <button type="button" class="dpad-btn dpad-btn--left" data-dir="left" aria-label="Move Left (A or Left Arrow)">
+              <span class="dpad-arrow">◀</span>
+              <span class="dpad-key">A / ←</span>
+            </button>
+            <button type="button" class="dpad-btn dpad-btn--down" data-dir="down" aria-label="Move Down (S or Down Arrow)">
+              <span class="dpad-arrow">▼</span>
+              <span class="dpad-key">S / ↓</span>
+            </button>
+            <button type="button" class="dpad-btn dpad-btn--right" data-dir="right" aria-label="Move Right (D or Right Arrow)">
+              <span class="dpad-arrow">▶</span>
+              <span class="dpad-key">D / →</span>
+            </button>
+          </div>
+
+          <ul class="control-guide-list" aria-label="Control Guide">
+            <li class="control-guide-item">
+              <span>Move Loader</span>
+              <span class="keycap-group">
+                <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>
+              </span>
+            </li>
+            <li class="control-guide-item">
+              <span>Arrow Keys</span>
+              <span class="keycap-group">
+                <kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd>
+              </span>
+            </li>
+            <li class="control-guide-item">
+              <span>Undo / Reset</span>
+              <span class="keycap-group">
+                <kbd>U</kbd><kbd>R</kbd>
+              </span>
+            </li>
+            <li class="control-guide-item">
+              <span>Quick Step</span>
+              <span class="keycap-group"><kbd>Click Tile</kbd></span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 3. Warehouse Symbol Key & Mission Protocol -->
+      <div class="deck-card">
+        <div class="card-heading">
+          <h2 class="card-title">Warehouse Symbol Key</h2>
+          <span class="card-badge">SEEDED 6×8</span>
+        </div>
+
+        <div class="legend-grid">
+          <div class="legend-item">
+            <div class="legend-swatch legend-swatch--player" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 40 40" fill="none">
+                <rect x="10" y="12" width="20" height="20" rx="5" fill="#0284c7" stroke="#38bdf8" stroke-width="2.5"/>
+                <path d="M14 4v8M26 4v8" stroke="#fbbf24" stroke-width="3" stroke-linecap="round"/>
+                <circle cx="20" cy="22" r="4" fill="#e0f2fe"/>
+              </svg>
+            </div>
+            <div class="legend-text">
+              <span class="legend-name">Forklift Unit</span>
+              <span class="legend-desc">Starts at A8 (SW)</span>
+            </div>
+          </div>
+
+          <div class="legend-item">
+            <div class="legend-swatch legend-swatch--package" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 40 40" fill="none">
+                <rect x="7" y="7" width="26" height="26" rx="4" fill="#d97706" stroke="#fbbf24" stroke-width="2.5"/>
+                <path d="M7 20h26M20 7v26" stroke="#fef3c7" stroke-width="2.5"/>
+              </svg>
+            </div>
+            <div class="legend-text">
+              <span class="legend-name">Cargo Crate (×5)</span>
+              <span class="legend-desc">Collect all 5</span>
+            </div>
+          </div>
+
+          <div class="legend-item">
+            <div class="legend-swatch legend-swatch--dock" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 40 40" fill="none">
+                <rect x="6" y="6" width="28" height="28" rx="5" fill="#065f46" stroke="#34d399" stroke-width="2.5"/>
+                <path d="M13 22l7-7 7 7" stroke="#a7f3d0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="legend-text">
+              <span class="legend-name">Loading Dock</span>
+              <span class="legend-desc">Exit at F1 (NE)</span>
+            </div>
+          </div>
+
+          <div class="legend-item">
+            <div class="legend-swatch legend-swatch--shelf" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 40 40" fill="none">
+                <rect x="6" y="6" width="28" height="28" rx="3" fill="#1e293b" stroke="#64748b" stroke-width="2.5"/>
+                <path d="M9 9l22 22M31 9L9 31" stroke="#475569" stroke-width="2.5"/>
+              </svg>
+            </div>
+            <div class="legend-text">
+              <span class="legend-name">Steel Rack (×8)</span>
+              <span class="legend-desc">Blocks movement</span>
+            </div>
+          </div>
+        </div>
+
+        <p class="mission-rules">
+          <strong>Dispatch Protocol:</strong> Collect all <strong>5 cargo packages</strong> across the warehouse floor, then reach the <strong>Loading Dock (F1)</strong> in the top-right cell. Blocked moves do not advance the counter.
+        </p>
+      </div>
+    </aside>
+  </main>
+
+  <!-- VICTORY MODAL DIALOG -->
+  <dialog id="victory-dialog" aria-labelledby="victory-title">
+    <div class="victory-panel">
+      <div class="victory-header">
+        <div class="victory-crest" aria-hidden="true">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+            <path d="M20 6L9 17l-5-5" stroke="#34d399" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div>
+          <div id="victory-kicker" class="victory-kicker">Shift Complete // Dock F1</div>
+          <h2 id="victory-title" class="victory-title">All Cargo Dispatched!</h2>
+        </div>
+      </div>
+
+      <p class="victory-summary">
+        All 5 priority packages have been loaded and verified at the northeast dispatch bay.
+      </p>
+
+      <div class="victory-stats">
+        <div class="victory-stat-card">
+          <div class="victory-stat-label">Final Time</div>
+          <div id="victory-time" class="victory-stat-val victory-stat-val--highlight">00:00.0</div>
+        </div>
+        <div class="victory-stat-card">
+          <div class="victory-stat-label">Moves Used</div>
+          <div id="victory-moves" class="victory-stat-val">26</div>
+        </div>
+        <div class="victory-stat-card">
+          <div class="victory-stat-label">Packages</div>
+          <div id="victory-packages" class="victory-stat-val victory-stat-val--highlight">5 / 5</div>
+        </div>
+      </div>
+
+      <div class="victory-rank-bar">
+        <span id="victory-rank-label" class="victory-rank-label">Optimal Route (Par 26):</span>
+        <span id="victory-rank" class="victory-rank-badge">S-RANK // OPTIMAL</span>
+      </div>
+
+      <div class="victory-actions">
+        <button id="victory-restart-btn" type="button" class="btn-primary-victory" autofocus>
+          Play Again (Restart)
+        </button>
+        <button id="victory-undo-btn" type="button" class="btn-secondary-victory" title="Undo winning move and continue playing (U)">
+          Undo Move (U)
+        </button>
+        <button id="victory-close-btn" type="button" class="btn-secondary-victory">
+          View Floor
+        </button>
+      </div>
+    </div>
+  </dialog>
+
+  <script>
+    (() => {
+      "use strict";
+
+      // Warehouse Grid Constants
+      const COLS = 6;
+      const ROWS = 8;
+      const COL_LABELS = ["A", "B", "C", "D", "E", "F"];
+      const SHELF_COUNT = 8;
+      const TOTAL_PACKAGES = 5;
+      const DEFAULT_SEED = "SECTOR-07";
+
+      // Player starts in bottom-left cell (Col 0, Row 7 -> A8)
+      const START_POS = Object.freeze({ col: 0, row: 7 });
+
+      // Loading dock in top-right cell (Col 5, Row 0 -> F1)
+      const DOCK_POS = Object.freeze({ col: 5, row: 0 });
+
+      // Classic Default Layout for Seed "SECTOR-07"
+      const CLASSIC_SHELVES = Object.freeze([
+        { col: 1, row: 1, bay: "R-B2" },
+        { col: 2, row: 1, bay: "R-C2" },
+        { col: 4, row: 1, bay: "R-E2" },
+        { col: 4, row: 2, bay: "R-E3" },
+        { col: 2, row: 3, bay: "R-C4" },
+        { col: 0, row: 4, bay: "R-A5" },
+        { col: 2, row: 4, bay: "R-C5" },
+        { col: 4, row: 5, bay: "R-E6" }
+      ]);
+
+      const CLASSIC_PACKAGES = Object.freeze([
+        { id: 1, col: 0, row: 0, label: "#01" },
+        { id: 2, col: 3, row: 2, label: "#02" },
+        { id: 3, col: 5, row: 2, label: "#03" },
+        { id: 4, col: 1, row: 5, label: "#04" },
+        { id: 5, col: 5, row: 6, label: "#05" }
+      ]);
+
+      const keyOf = (col, row) => `${col},${row}`;
+
+      // Deterministic String Hash (FNV-1a 32-bit) + Mulberry32 PRNG
+      function hashSeedString(str) {
+        let h = 2166136261 >>> 0;
+        for (let i = 0; i < str.length; i++) {
+          h ^= str.charCodeAt(i);
+          h = Math.imul(h, 16777619);
+        }
+        return h >>> 0;
+      }
+
+      function createSeededPRNG(seedInt) {
+        let a = (seedInt ^ 0x6d2b79f5) >>> 0;
+        return function nextRand() {
+          a = (a + 0x6d2b79f5) | 0;
+          let t = Math.imul(a ^ (a >>> 15), 1 | a);
+          t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+
+      /**
+       * Verifies that all 5 packages and the loading dock are reachable from START_POS,
+       * and computes the exact minimum number of moves required to collect all 5 packages
+       * and reach DOCK_POS using a state-space BFS over (col, row, collectedBitmask).
+       * Returns Infinity if any package or the dock is unreachable.
+       */
+      function computeShortestValidRoute(shelves, packages) {
+        const blocked = new Set(shelves.map(s => keyOf(s.col, s.row)));
+        const pkgBitByCoord = new Map();
+        packages.forEach((p, idx) => {
+          pkgBitByCoord.set(keyOf(p.col, p.row), 1 << idx);
+        });
+
+        const ALL_MASK = (1 << packages.length) - 1; // 0b11111 = 31
+        const totalStates = COLS * ROWS * (ALL_MASK + 1);
+        const dist = new Int16Array(totalStates).fill(-1);
+
+        const stateIndex = (col, row, mask) => ((row * COLS + col) << packages.length) | mask;
+
+        const startMask = pkgBitByCoord.get(keyOf(START_POS.col, START_POS.row)) || 0;
+        const startIdx = stateIndex(START_POS.col, START_POS.row, startMask);
+        dist[startIdx] = 0;
+
+        const queue = [startIdx];
+        let head = 0;
+        const dirs = [
+          [0, -1],
+          [1, 0],
+          [0, 1],
+          [-1, 0]
+        ];
+
+        while (head < queue.length) {
+          const currIdx = queue[head++];
+          const currDist = dist[currIdx];
+          const mask = currIdx & ALL_MASK;
+          const cellIndex = currIdx >> packages.length;
+          const col = cellIndex % COLS;
+          const row = (cellIndex / COLS) | 0;
+
+          if (col === DOCK_POS.col && row === DOCK_POS.row && mask === ALL_MASK) {
+            return currDist;
+          }
+
+          for (let i = 0; i < 4; i++) {
+            const nc = col + dirs[i][0];
+            const nr = row + dirs[i][1];
+            if (nc < 0 || nc >= COLS || nr < 0 || nr >= ROWS) continue;
+            const nKey = keyOf(nc, nr);
+            if (blocked.has(nKey)) continue;
+
+            const nextMask = mask | (pkgBitByCoord.get(nKey) || 0);
+            const nextIdx = stateIndex(nc, nr, nextMask);
+            if (dist[nextIdx] === -1) {
+              dist[nextIdx] = currDist + 1;
+              queue.push(nextIdx);
+            }
+          }
+        }
+
+        return Infinity;
+      }
+
+      /**
+       * Deterministically generates a valid 6x8 board from any seed string.
+       * - Places Start at (0,7) and Dock at (5,0)
+       * - Places 8 non-overlapping shelves and 5 non-overlapping packages
+       * - Verifies all packages and dock are reachable and calculates exact Par moves
+       */
+      function generateBoardFromSeed(rawSeed) {
+        const cleanSeed = String(rawSeed ?? "").trim() || DEFAULT_SEED;
+
+        if (cleanSeed === DEFAULT_SEED) {
+          const shelves = CLASSIC_SHELVES.map(s => ({ ...s }));
+          const packages = CLASSIC_PACKAGES.map(p => ({ ...p }));
+          const parMoves = computeShortestValidRoute(shelves, packages);
+          return { seed: cleanSeed, shelves, packages, parMoves };
+        }
+
+        const rand = createSeededPRNG(hashSeedString(cleanSeed));
+
+        // Build candidate pool of all 46 cells excluding Start (0,7) and Dock (5,0)
+        const basePool = [];
+        for (let row = 0; row < ROWS; row++) {
+          for (let col = 0; col < COLS; col++) {
+            if (col === START_POS.col && row === START_POS.row) continue;
+            if (col === DOCK_POS.col && row === DOCK_POS.row) continue;
+            basePool.push({ col, row });
+          }
+        }
+
+        for (let attempt = 0; attempt < 500; attempt++) {
+          const pool = basePool.slice();
+          // Deterministic Fisher-Yates shuffle
+          for (let i = pool.length - 1; i > 0; i--) {
+            const j = Math.floor(rand() * (i + 1));
+            const tmp = pool[i];
+            pool[i] = pool[j];
+            pool[j] = tmp;
+          }
+
+          const rawShelves = pool.slice(0, SHELF_COUNT).sort((a, b) => (a.row - b.row) || (a.col - b.col));
+          const rawPackages = pool.slice(SHELF_COUNT, SHELF_COUNT + TOTAL_PACKAGES).sort((a, b) => (a.row - b.row) || (a.col - b.col));
+
+          const shelves = rawShelves.map(cell => ({
+            col: cell.col,
+            row: cell.row,
+            bay: `R-${COL_LABELS[cell.col]}${cell.row + 1}`
+          }));
+
+          const packages = rawPackages.map((cell, idx) => ({
+            id: idx + 1,
+            col: cell.col,
+            row: cell.row,
+            label: `#0${idx + 1}`
+          }));
+
+          const parMoves = computeShortestValidRoute(shelves, packages);
+          if (Number.isFinite(parMoves)) {
+            return { seed: cleanSeed, shelves, packages, parMoves };
+          }
+        }
+
+        // Fallback to classic if exhausted (theoretically unreachable)
+        return {
+          seed: cleanSeed,
+          shelves: CLASSIC_SHELVES.map(s => ({ ...s })),
+          packages: CLASSIC_PACKAGES.map(p => ({ ...p })),
+          parMoves: computeShortestValidRoute(CLASSIC_SHELVES, CLASSIC_PACKAGES)
+        };
+      }
+
+      function serializeBoardLayout(shelves, packages) {
+        const sStr = shelves.map(s => `${s.col},${s.row}`).join(";");
+        const pStr = packages.map(p => `${p.col},${p.row}`).join(";");
+        return `${sStr}|${pStr}`;
+      }
+
+      // Active Board Configuration
+      let currentSeed = DEFAULT_SEED;
+      let currentShelves = [];
+      let currentPackages = [];
+      let currentParMoves = 26;
+      let shelfMap = new Map();
+      let packageMap = new Map();
+      let newBoardCounter = 1;
+
+      // Active Game State
+      let player = { col: START_POS.col, row: START_POS.row, facing: 0 };
+      let collectedIds = new Set();
+      let visitedCells = new Set([keyOf(START_POS.col, START_POS.row)]);
+      let undoStack = [];
+      let moveCount = 0;
+      let timerStarted = false;
+      let timerRunning = false;
+      let gameWon = false;
+      let accumulatedMs = 0;
+      let lastResumeTimeMs = 0;
+      let rafId = null;
+
+      // DOM Elements
+      const gridEl = document.getElementById("warehouse-grid");
+      const sectorSeedLabelEl = document.getElementById("sector-seed-label");
+      const seedInputEl = document.getElementById("seed-input");
+      const loadSeedBtn = document.getElementById("load-seed-btn");
+      const undoBtn = document.getElementById("undo-btn");
+      const restartBtn = document.getElementById("restart-btn");
+      const newBoardBtn = document.getElementById("new-board-btn");
+      const timeDisplayEl = document.getElementById("time-display");
+      const timerStateSubEl = document.getElementById("timer-state-sub");
+      const movesDisplayEl = document.getElementById("moves-display");
+      const parStateSubEl = document.getElementById("par-state-sub");
+      const packagesDisplayEl = document.getElementById("packages-display");
+      const cargoStateSubEl = document.getElementById("cargo-state-sub");
+      const statusBannerEl = document.getElementById("status-banner");
+      const posReadoutEl = document.getElementById("pos-readout");
+      const dockReadoutEl = document.getElementById("dock-readout");
+      const manifestSlotsEl = document.getElementById("manifest-slots");
+      const victoryDialog = document.getElementById("victory-dialog");
+      const victoryKickerEl = document.getElementById("victory-kicker");
+      const victoryTimeEl = document.getElementById("victory-time");
+      const victoryMovesEl = document.getElementById("victory-moves");
+      const victoryPackagesEl = document.getElementById("victory-packages");
+      const victoryRankLabelEl = document.getElementById("victory-rank-label");
+      const victoryRankEl = document.getElementById("victory-rank");
+      const victoryRestartBtn = document.getElementById("victory-restart-btn");
+      const victoryUndoBtn = document.getElementById("victory-undo-btn");
+      const victoryCloseBtn = document.getElementById("victory-close-btn");
+      const inlineVictoryBanner = document.getElementById("inline-victory-banner");
+      const inlineVictoryText = document.getElementById("inline-victory-text");
+      const inlineUndoBtn = document.getElementById("inline-undo-btn");
+      const showVictoryBtn = document.getElementById("show-victory-btn");
+      const dpadButtons = document.querySelectorAll(".dpad-btn");
+
+      // SVG Templates
+      function getShelfSVG(bayCode) {
+        return `
+          <svg class="entity-svg" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+            <rect x="6" y="7" width="36" height="36" rx="4" fill="#151f2e" stroke="#475569" stroke-width="2"/>
+            <rect x="6" y="7" width="4.5" height="36" rx="1.5" fill="#ea580c"/>
+            <rect x="37.5" y="7" width="4.5" height="36" rx="1.5" fill="#ea580c"/>
+            <rect x="10.5" y="18" width="27" height="2.8" fill="#64748b"/>
+            <rect x="10.5" y="31" width="27" height="2.8" fill="#64748b"/>
+            <path d="M10.5 8L37.5 18M37.5 8L10.5 18M10.5 21L37.5 31M37.5 21L10.5 31" stroke="#334155" stroke-width="1.5"/>
+            <rect x="12" y="10" width="10" height="8" rx="1" fill="#475569" stroke="#94a3b8" stroke-width="1"/>
+            <rect x="25" y="11" width="11" height="7" rx="1" fill="#334155" stroke="#64748b" stroke-width="1"/>
+            <rect x="13" y="23" width="13" height="8" rx="1" fill="#3b4c63" stroke="#94a3b8" stroke-width="1"/>
+            <rect x="28" y="24" width="8" height="7" rx="1" fill="#475569" stroke="#64748b" stroke-width="1"/>
+            <text x="24" y="40.5" text-anchor="middle" fill="#cbd5e1" font-family="monospace" font-size="6.5" font-weight="700">${bayCode}</text>
+          </svg>
+        `;
+      }
+
+      function getPackageSVG(label) {
+        return `
+          <span class="package-tag">${label}</span>
+          <div class="package-wrapper" aria-hidden="true">
+            <svg viewBox="0 0 48 48" width="100%" height="100%" fill="none">
+              <rect x="8" y="9" width="32" height="32" rx="5" fill="#d97706" stroke="#fde68a" stroke-width="2.2"/>
+              <rect x="12" y="13" width="24" height="24" rx="3" fill="#b45309" stroke="#f59e0b" stroke-width="1.5"/>
+              <path d="M12 13L36 37M36 13L12 37" stroke="#92400e" stroke-width="2"/>
+              <rect x="21.5" y="9" width="5" height="32" fill="#fef3c7" opacity="0.92"/>
+              <rect x="8" y="22.5" width="32" height="5" fill="#fef3c7" opacity="0.92"/>
+              <rect x="18" y="19" width="12" height="12" rx="2" fill="#451a03" stroke="#fbbf24" stroke-width="1.5"/>
+              <path d="M21 22v6M24 22v6M27 22v6" stroke="#fef3c7" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+        `;
+      }
+
+      function getDockSVG(isReady) {
+        const strokeColor = isReady ? "#34d399" : "#818cf8";
+        const fillColor = isReady ? "#064e3b" : "#1e1b4b";
+        const chevronColor = isReady ? "#a7f3d0" : "#c7d2fe";
+        const badgeClass = isReady ? "dock-badge dock-badge--open" : "dock-badge dock-badge--locked";
+        const badgeText = isReady ? "OPEN" : "DOCK";
+        return `
+          <span class="${badgeClass}">${badgeText}</span>
+          <svg class="entity-svg" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+            <rect x="6" y="6" width="36" height="5" rx="2" fill="${strokeColor}" opacity="0.9"/>
+            <rect x="7" y="13" width="34" height="30" rx="5" fill="${fillColor}" stroke="${strokeColor}" stroke-width="2.2"/>
+            <path d="M17 30l7-6.5 7 6.5" stroke="${chevronColor}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M17 22.5l7-6.5 7 6.5" stroke="${chevronColor}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" opacity="0.78"/>
+            <text x="24" y="39.5" text-anchor="middle" fill="${chevronColor}" font-family="monospace" font-size="6.6" font-weight="800">${isReady ? "ENTER" : "BAY F1"}</text>
+          </svg>
+        `;
+      }
+
+      function getForkliftSVG(facingDeg, cargoCount) {
+        const hasCargo = cargoCount > 0;
+        return `
+          <div class="player-forklift" style="transform: rotate(${facingDeg}deg);" aria-hidden="true">
+            <svg viewBox="0 0 48 48" width="100%" height="100%" fill="none">
+              <path d="M14 11L10 2h7l-3 9ZM34 11l-3-9h7l-4 9Z" fill="rgba(56, 189, 248, 0.3)"/>
+              <rect x="13" y="5" width="4" height="11" rx="1.5" fill="#94a3b8" stroke="#e2e8f0" stroke-width="1"/>
+              <rect x="31" y="5" width="4" height="11" rx="1.5" fill="#94a3b8" stroke="#e2e8f0" stroke-width="1"/>
+              ${hasCargo ? `
+                <rect x="15" y="6" width="18" height="9" rx="2" fill="#f59e0b" stroke="#fef3c7" stroke-width="1.5"/>
+                <path d="M24 6v9M15 10.5h18" stroke="#fef3c7" stroke-width="1.2"/>
+              ` : ""}
+              <rect x="7.5" y="16" width="3.5" height="8.5" rx="1.5" fill="#090d14" stroke="#475569" stroke-width="1"/>
+              <rect x="37" y="16" width="3.5" height="8.5" rx="1.5" fill="#090d14" stroke="#475569" stroke-width="1"/>
+              <rect x="8.5" y="30" width="3.5" height="8.5" rx="1.5" fill="#090d14" stroke="#475569" stroke-width="1"/>
+              <rect x="36" y="30" width="3.5" height="8.5" rx="1.5" fill="#090d14" stroke="#475569" stroke-width="1"/>
+              <rect x="10.5" y="14" width="27" height="27" rx="6.5" fill="#0284c7" stroke="#7dd3fc" stroke-width="2.2"/>
+              <path d="M12.5 34.5h23v3.5a3 3 0 0 1-3 3h-17a3 3 0 0 1-3-3v-3.5Z" fill="#f59e0b"/>
+              <rect x="14.5" y="18.5" width="19" height="15" rx="4" fill="#0f172a" stroke="#38bdf8" stroke-width="1.6"/>
+              <circle cx="24" cy="26" r="4.8" fill="#38bdf8"/>
+              <circle cx="24" cy="26" r="2.2" fill="#e0f2fe"/>
+            </svg>
+          </div>
+        `;
+      }
+
+      // Monotonic Elapsed Time Helpers (Never rewinds on undo)
+      function formatTime(ms) {
+        const totalTenths = Math.floor(ms / 100);
+        const tenths = totalTenths % 10;
+        const totalSeconds = Math.floor(totalTenths / 10);
+        const seconds = totalSeconds % 60;
+        const minutes = Math.floor(totalSeconds / 60);
+        return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${tenths}`;
+      }
+
+      function getCurrentElapsedMs() {
+        if (!timerStarted) return 0;
+        if (!timerRunning) return accumulatedMs;
+        return accumulatedMs + (performance.now() - lastResumeTimeMs);
+      }
+
+      function updateTimerLoop() {
+        if (!timerStarted || !timerRunning) return;
+        timeDisplayEl.textContent = formatTime(getCurrentElapsedMs());
+        rafId = requestAnimationFrame(updateTimerLoop);
+      }
+
+      function startTimerIfNeeded() {
+        if (!timerStarted) {
+          timerStarted = true;
+          timerRunning = true;
+          accumulatedMs = 0;
+          lastResumeTimeMs = performance.now();
+          timerStateSubEl.textContent = "Shift clock running";
+          rafId = requestAnimationFrame(updateTimerLoop);
+        } else if (!timerRunning) {
+          timerRunning = true;
+          lastResumeTimeMs = performance.now();
+          timerStateSubEl.textContent = "Shift clock running";
+          rafId = requestAnimationFrame(updateTimerLoop);
+        }
+      }
+
+      function pauseTimer() {
+        if (timerRunning) {
+          accumulatedMs += performance.now() - lastResumeTimeMs;
+          timerRunning = false;
+        }
+        if (rafId !== null) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+        timeDisplayEl.textContent = formatTime(accumulatedMs);
+      }
+
+      function resetTimerCompletely() {
+        if (rafId !== null) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+        timerStarted = false;
+        timerRunning = false;
+        accumulatedMs = 0;
+        lastResumeTimeMs = 0;
+        timeDisplayEl.textContent = "00:00.0";
+        timerStateSubEl.textContent = "Starts on 1st move";
+      }
+
+      function setStatusBanner(text, state) {
+        statusBannerEl.textContent = text;
+        statusBannerEl.setAttribute("data-state", state);
+      }
+
+      // Render the 6x8 Warehouse Grid and HUD
+      function render() {
+        const allCollected = collectedIds.size === TOTAL_PACKAGES;
+        gridEl.innerHTML = "";
+
+        for (let row = 0; row < ROWS; row++) {
+          for (let col = 0; col < COLS; col++) {
+            const cellKey = keyOf(col, row);
+            const coordName = `${COL_LABELS[col]}${row + 1}`;
+            const isStart = col === START_POS.col && row === START_POS.row;
+            const isDock = col === DOCK_POS.col && row === DOCK_POS.row;
+            const shelf = shelfMap.get(cellKey);
+            const pkg = packageMap.get(cellKey);
+            const hasPackage = pkg && !collectedIds.has(pkg.id);
+            const wasCollected = pkg && collectedIds.has(pkg.id);
+            const isPlayerHere = player.col === col && player.row === row;
+            const wasVisited = visitedCells.has(cellKey);
+
+            // Check if this cell is a valid 1-step orthogonal move from the player
+            const dist = Math.abs(col - player.col) + Math.abs(row - player.row);
+            const isValidAdjacentStep = !gameWon && dist === 1 && !shelf;
+
+            const cell = document.createElement("div");
+            cell.className = "cell";
+            cell.dataset.col = col;
+            cell.dataset.row = row;
+            cell.setAttribute("role", "gridcell");
+
+            let cellDesc = `Cell ${coordName}`;
+            if (isStart) {
+              cell.classList.add("cell--start");
+              const startBadge = document.createElement("span");
+              startBadge.className = "start-badge";
+              startBadge.textContent = "START";
+              cell.appendChild(startBadge);
+            }
+            if (wasVisited) {
+              cell.classList.add("cell--visited");
+            }
+
+            if (shelf) {
+              cell.classList.add("cell--shelf");
+              cellDesc += `, Shelving Rack ${shelf.bay} (Blocked)`;
+              cell.insertAdjacentHTML("beforeend", getShelfSVG(shelf.bay));
+            } else if (isDock) {
+              cell.classList.add(allCollected ? "cell--dock-open" : "cell--dock-locked");
+              cellDesc += allCollected
+                ? ", Loading Dock (Unlocked - Ready for Dispatch)"
+                : `, Loading Dock (Locked - Collect all 5 packages first)`;
+              cell.insertAdjacentHTML("beforeend", getDockSVG(allCollected));
+            } else if (hasPackage) {
+              cell.classList.add("cell--package");
+              cellDesc += `, Package ${pkg.label}`;
+              cell.insertAdjacentHTML("beforeend", getPackageSVG(pkg.label));
+            } else if (wasCollected && !isPlayerHere) {
+              cell.classList.add("cell--collected");
+              cellDesc += `, Package ${pkg.label} Collected`;
+              cell.insertAdjacentHTML("beforeend", `
+                <div class="collected-mark" aria-hidden="true">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                    <path d="M20 6L9 17l-5-5" stroke="#34d399" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  <span>${pkg.label}</span>
+                </div>
+              `);
+            }
+
+            if (isPlayerHere) {
+              cell.classList.add("cell--player");
+              cellDesc += `, Player Forklift Here`;
+              cell.insertAdjacentHTML("beforeend", getForkliftSVG(player.facing, collectedIds.size));
+            } else if (isValidAdjacentStep) {
+              cell.classList.add("cell--valid-step");
+              cell.addEventListener("click", () => {
+                attemptMove(col - player.col, row - player.row);
+              });
+            }
+
+            const coordSpan = document.createElement("span");
+            coordSpan.className = "cell-coord";
+            coordSpan.textContent = coordName;
+            cell.appendChild(coordSpan);
+
+            cell.setAttribute("aria-label", cellDesc);
+            gridEl.appendChild(cell);
+          }
+        }
+
+        // Update Telemetry & Seed Readouts
+        sectorSeedLabelEl.textContent = `SEED: ${currentSeed} // 6×8`;
+        movesDisplayEl.textContent = String(moveCount);
+        parStateSubEl.textContent = `Valid moves (Par ${currentParMoves})`;
+        packagesDisplayEl.textContent = `${collectedIds.size} / ${TOTAL_PACKAGES}`;
+        packagesDisplayEl.classList.toggle("is-complete", allCollected);
+
+        cargoStateSubEl.textContent = allCollected
+          ? "Proceed to Dock F1!"
+          : `${TOTAL_PACKAGES - collectedIds.size} left to load`;
+
+        const currentCoord = `${COL_LABELS[player.col]}${player.row + 1}`;
+        posReadoutEl.textContent = `${currentCoord} (Col ${player.col + 1}, Row ${player.row + 1})`;
+
+        dockReadoutEl.textContent = allCollected
+          ? "DOCK F1: OPEN — PROCEED TO NE CORNER"
+          : `DOCK F1: LOCKED (${collectedIds.size}/${TOTAL_PACKAGES} CARGO)`;
+        dockReadoutEl.style.color = allCollected ? "var(--accent-emerald-bright)" : "";
+
+        // Update Undo button state
+        undoBtn.disabled = undoStack.length === 0;
+
+        // Update 5-Slot Cargo Manifest Strip
+        const slotEls = manifestSlotsEl.querySelectorAll(".manifest-slot");
+        currentPackages.forEach((pkg, idx) => {
+          const isCollected = collectedIds.has(pkg.id);
+          slotEls[idx].classList.toggle("is-collected", isCollected);
+          slotEls[idx].textContent = isCollected ? `✓${pkg.id}` : `#${pkg.id}`;
+        });
+      }
+
+      function triggerBlockedFeedback(dx, dy, reason) {
+        const playerCell = gridEl.querySelector(`.cell[data-col="${player.col}"][data-row="${player.row}"]`);
+        if (playerCell) {
+          playerCell.style.setProperty("--bump-x", `${dx * 5}px`);
+          playerCell.style.setProperty("--bump-y", `${dy * 5}px`);
+          playerCell.classList.remove("cell--bump");
+          void playerCell.offsetWidth;
+          playerCell.classList.add("cell--bump");
+        }
+        setStatusBanner(reason, "blocked");
+      }
+
+      function computeEfficiencyRank(moves, par) {
+        if (moves <= par) return "S-RANK // OPTIMAL ROUTE";
+        if (moves <= par + 4) return "A-RANK // EXPRESS DISPATCH";
+        if (moves <= par + 10) return "B-RANK // STANDARD SHIFT";
+        return "C-RANK // CARGO DELIVERED";
+      }
+
+      function handleVictory() {
+        gameWon = true;
+        pauseTimer();
+        timerStateSubEl.textContent = "Shift complete!";
+        setStatusBanner("VICTORY — ALL CARGO DISPATCHED AT DOCK F1!", "won");
+
+        const finalTimeStr = formatTime(accumulatedMs);
+        victoryKickerEl.textContent = `Shift Complete // Seed ${currentSeed}`;
+        victoryTimeEl.textContent = finalTimeStr;
+        victoryMovesEl.textContent = String(moveCount);
+        victoryPackagesEl.textContent = `${collectedIds.size} / ${TOTAL_PACKAGES}`;
+        victoryRankLabelEl.textContent = `Route Efficiency (Par ${currentParMoves}):`;
+        victoryRankEl.textContent = computeEfficiencyRank(moveCount, currentParMoves);
+
+        inlineVictoryText.textContent = `SHIFT COMPLETE • ${finalTimeStr} • ${moveCount} Moves`;
+        inlineVictoryBanner.classList.add("is-visible");
+
+        if (typeof victoryDialog.showModal === "function" && !victoryDialog.open) {
+          victoryDialog.showModal();
+        }
+      }
+
+      // Attempt a move by delta (dx, dy)
+      function attemptMove(dx, dy) {
+        if (gameWon) return false;
+
+        let nextFacing = player.facing;
+        if (dx === 0 && dy === -1) nextFacing = 0;
+        else if (dx === 1 && dy === 0) nextFacing = 90;
+        else if (dx === 0 && dy === 1) nextFacing = 180;
+        else if (dx === -1 && dy === 0) nextFacing = -90;
+
+        const targetCol = player.col + dx;
+        const targetRow = player.row + dy;
+
+        // Check warehouse boundary walls
+        if (targetCol < 0 || targetCol >= COLS || targetRow < 0 || targetRow >= ROWS) {
+          player.facing = nextFacing;
+          render();
+          triggerBlockedFeedback(dx, dy, "BLOCKED — WAREHOUSE PERIMETER WALL");
+          return false;
+        }
+
+        // Check shelving obstacles
+        const targetKey = keyOf(targetCol, targetRow);
+        const hitShelf = shelfMap.get(targetKey);
+        if (hitShelf) {
+          player.facing = nextFacing;
+          render();
+          triggerBlockedFeedback(dx, dy, `BLOCKED — STEEL RACK ${hitShelf.bay}`);
+          return false;
+        }
+
+        // Save snapshot to Undo History before mutating state
+        undoStack.push({
+          col: player.col,
+          row: player.row,
+          facing: player.facing,
+          moveCount: moveCount,
+          collectedIds: new Set(collectedIds),
+          visitedCells: new Set(visitedCells)
+        });
+
+        // Valid Move! Start timer on first successful move & increment move count
+        startTimerIfNeeded();
+        moveCount += 1;
+        player.col = targetCol;
+        player.row = targetRow;
+        player.facing = nextFacing;
+        visitedCells.add(targetKey);
+
+        // Check package pickup
+        const pkg = packageMap.get(targetKey);
+        let pickedUpNow = false;
+        if (pkg && !collectedIds.has(pkg.id)) {
+          collectedIds.add(pkg.id);
+          pickedUpNow = true;
+        }
+
+        const allCollected = collectedIds.size === TOTAL_PACKAGES;
+        const atDock = player.col === DOCK_POS.col && player.row === DOCK_POS.row;
+
+        // Update status banner based on resulting cell
+        if (atDock && allCollected) {
+          render();
+          handleVictory();
+          return true;
+        }
+
+        if (atDock && !allCollected) {
+          const remaining = TOTAL_PACKAGES - collectedIds.size;
+          setStatusBanner(
+            `DOCK STANDBY — COLLECT ${remaining} MORE PACKAGE${remaining > 1 ? "S" : ""} FIRST`,
+            "active"
+          );
+        } else if (pickedUpNow && allCollected) {
+          setStatusBanner(`PACKAGE ${pkg.label} LOADED — DOCK F1 UNLOCKED!`, "ready");
+        } else if (pickedUpNow) {
+          setStatusBanner(
+            `COLLECTED PACKAGE ${pkg.label} (${collectedIds.size}/${TOTAL_PACKAGES})`,
+            "active"
+          );
+        } else if (allCollected) {
+          setStatusBanner("ALL 5 PACKAGES LOADED — HEAD TO DOCK F1 (NE)", "ready");
+        } else {
+          setStatusBanner(
+            `SHIFT ACTIVE — ${collectedIds.size}/${TOTAL_PACKAGES} PACKAGES COLLECTED`,
+            "active"
+          );
+        }
+
+        render();
+        return true;
+      }
+
+      /**
+       * Undo the most recent successful move.
+       * - Restores previous player position, move count, and package collection state.
+       * - Supports multiple undos back to start.
+       * - If undoing the winning move, dismisses the victory panel and resumes play
+       *   without rewinding elapsed time.
+       */
+      function undoMove() {
+        if (undoStack.length === 0) return false;
+
+        const prev = undoStack.pop();
+        const wasWon = gameWon;
+
+        player.col = prev.col;
+        player.row = prev.row;
+        player.facing = prev.facing;
+        moveCount = prev.moveCount;
+        collectedIds = new Set(prev.collectedIds);
+        visitedCells = new Set(prev.visitedCells);
+
+        if (wasWon) {
+          gameWon = false;
+          inlineVictoryBanner.classList.remove("is-visible");
+          if (victoryDialog.open) {
+            victoryDialog.close();
+          }
+          // Resume timer from accumulatedMs without rewinding elapsed time
+          startTimerIfNeeded();
+        }
+
+        const allCollected = collectedIds.size === TOTAL_PACKAGES;
+        setStatusBanner(
+          `UNDO — RESTORED MOVE ${moveCount} (${collectedIds.size}/${TOTAL_PACKAGES} CARGO)`,
+          allCollected ? "ready" : "active"
+        );
+
+        render();
+        return true;
+      }
+
+      /**
+       * Reset the current board without changing its layout or seed.
+       * Clears timer, move counter, collected packages, victory state, and undo history.
+       */
+      function restartGame() {
+        resetTimerCompletely();
+        player = { col: START_POS.col, row: START_POS.row, facing: 0 };
+        collectedIds.clear();
+        visitedCells = new Set([keyOf(START_POS.col, START_POS.row)]);
+        undoStack = [];
+        moveCount = 0;
+        gameWon = false;
+
+        seedInputEl.value = currentSeed;
+        inlineVictoryBanner.classList.remove("is-visible");
+        setStatusBanner("STANDBY — MAKE FIRST MOVE", "standby");
+
+        if (victoryDialog.open) {
+          victoryDialog.close();
+        }
+
+        render();
+      }
+
+      /**
+       * Load a board from a specific seed string and reset all game state.
+       */
+      function loadBoardBySeed(rawSeed) {
+        const board = generateBoardFromSeed(rawSeed);
+        currentSeed = board.seed;
+        currentShelves = board.shelves;
+        currentPackages = board.packages;
+        currentParMoves = board.parMoves;
+
+        shelfMap = new Map(currentShelves.map(s => [keyOf(s.col, s.row), s]));
+        packageMap = new Map(currentPackages.map(p => [keyOf(p.col, p.row), p]));
+
+        seedInputEl.value = currentSeed;
+        restartGame();
+      }
+
+      /**
+       * Select a new seed guaranteed to produce a different layout from the current board,
+       * update the seed input, and load the new board.
+       */
+      function generateNewBoard() {
+        const currentSignature = serializeBoardLayout(currentShelves, currentPackages);
+        let candidateSeed = "";
+        let candidateBoard = null;
+
+        for (let i = 0; i < 100; i++) {
+          const randomDigits = Math.floor(1000 + Math.random() * 9000);
+          candidateSeed = `BAY-${String(newBoardCounter).padStart(2, "0")}-${randomDigits}`;
+          newBoardCounter += 1;
+          candidateBoard = generateBoardFromSeed(candidateSeed);
+          if (
+            candidateSeed !== currentSeed &&
+            serializeBoardLayout(candidateBoard.shelves, candidateBoard.packages) !== currentSignature
+          ) {
+            break;
+          }
+        }
+
+        loadBoardBySeed(candidateSeed);
+        setStatusBanner(`NEW BOARD LOADED — SEED ${currentSeed}`, "standby");
+      }
+
+      // Flash the corresponding on-screen D-pad button when keyboard is used
+      function flashDpadButton(dirName) {
+        const btn = document.querySelector(`.dpad-btn[data-dir="${dirName}"]`);
+        if (!btn) return;
+        btn.classList.add("is-pressed");
+        setTimeout(() => btn.classList.remove("is-pressed"), 130);
+      }
+
+      // Keyboard Controls (Arrow keys + WASD + U to undo + R to restart)
+      window.addEventListener("keydown", (e) => {
+        if (e.altKey || e.ctrlKey || e.metaKey) return;
+
+        // Do not intercept keys while typing inside the editable seed input
+        const activeTag = document.activeElement ? document.activeElement.tagName : "";
+        if (activeTag === "INPUT" || activeTag === "TEXTAREA") return;
+
+        const key = e.key;
+        if (key === "u" || key === "U") {
+          e.preventDefault();
+          undoMove();
+          return;
+        }
+
+        if (key === "r" || key === "R") {
+          e.preventDefault();
+          restartGame();
+          return;
+        }
+
+        // If the modal dialog is open, ignore directional movement keys
+        if (victoryDialog.open) return;
+
+        switch (key) {
+          case "ArrowUp":
+          case "w":
+          case "W":
+            e.preventDefault();
+            flashDpadButton("up");
+            attemptMove(0, -1);
+            break;
+          case "ArrowDown":
+          case "s":
+          case "S":
+            e.preventDefault();
+            flashDpadButton("down");
+            attemptMove(0, 1);
+            break;
+          case "ArrowLeft":
+          case "a":
+          case "A":
+            e.preventDefault();
+            flashDpadButton("left");
+            attemptMove(-1, 0);
+            break;
+          case "ArrowRight":
+          case "d":
+          case "D":
+            e.preventDefault();
+            flashDpadButton("right");
+            attemptMove(1, 0);
+            break;
+        }
+      });
+
+      // Seed Input Enter key handler
+      seedInputEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          seedInputEl.blur();
+          loadBoardBySeed(seedInputEl.value);
+          setStatusBanner(`SEED LOADED — ${currentSeed}`, "standby");
+        }
+      });
+
+      loadSeedBtn.addEventListener("click", () => {
+        loadBoardBySeed(seedInputEl.value);
+        setStatusBanner(`SEED LOADED — ${currentSeed}`, "standby");
+        loadSeedBtn.blur();
+      });
+
+      // On-Screen Direction Button Controls
+      const dirVectors = {
+        up: [0, -1],
+        down: [0, 1],
+        left: [-1, 0],
+        right: [1, 0]
+      };
+
+      dpadButtons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const dir = btn.dataset.dir;
+          const vec = dirVectors[dir];
+          if (vec) attemptMove(vec[0], vec[1]);
+          btn.blur();
+        });
+      });
+
+      // Action Toolbar & Modal Controls
+      undoBtn.addEventListener("click", () => {
+        undoMove();
+        undoBtn.blur();
+      });
+      inlineUndoBtn.addEventListener("click", () => {
+        undoMove();
+        inlineUndoBtn.blur();
+      });
+      victoryUndoBtn.addEventListener("click", () => {
+        undoMove();
+      });
+      restartBtn.addEventListener("click", () => {
+        restartGame();
+        restartBtn.blur();
+      });
+      newBoardBtn.addEventListener("click", () => {
+        generateNewBoard();
+        newBoardBtn.blur();
+      });
+      victoryRestartBtn.addEventListener("click", restartGame);
+      victoryCloseBtn.addEventListener("click", () => victoryDialog.close());
+      showVictoryBtn.addEventListener("click", () => {
+        if (!victoryDialog.open) victoryDialog.showModal();
+      });
+
+      // Initial board load
+      loadBoardBySeed(DEFAULT_SEED);
+    })();
+  </script>
+</body>
+</html>
