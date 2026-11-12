@@ -1,0 +1,32 @@
+{
+  "name": "Dock Dash — Tactical Warehouse Logistics",
+  "short_name": "Dock Dash",
+  "description": "Tactical warehouse logistics puzzle. Collect all 5 cargo crates and reach the loading dock in the fewest moves.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#06090e",
+  "theme_color": "#0b1018",
+  "categories": ["games", "puzzle"],
+  "icons": [
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
